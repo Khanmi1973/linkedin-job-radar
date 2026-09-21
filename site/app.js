@@ -51,9 +51,10 @@ function render(){
   }
   $('more').hidden=visible.length<=limit;
 }
-for(const id of fields)$(id).addEventListener('input',()=>{limit=30;filterPosts();});
+for(const id of fields)$(id).addEventListener('input',()=>{limit=30;filterPosts();updateLinkedInLink();});
 $('reset').onclick=()=>{for(const id of ['keywords','custom','location','exclude'])$(id).value='';$('mode').value='any';$('sector').value='Any sector';$('age').value='168';$('unknown').checked=false;limit=30;filterPosts();};
 $('more').onclick=()=>{limit+=30;render();};
+$('linkedinSearch').addEventListener('click',updateLinkedInLink);
 $('export').onclick=()=>{
   const columns=['author','author_url','age','published_earliest','published_latest','text','url','collected_at'];
   const cell=value=>{let s=String(value??'');if(/^[\s]*[=+@-]/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"';};
@@ -65,7 +66,7 @@ async function load(){
     const response=await fetch('data.json',{cache:'no-store'});if(!response.ok)throw Error();
     const data=await response.json();posts=(data.posts||[]).sort((a,b)=>(Date.parse(b.published_latest||b.collected_at)||0)-(Date.parse(a.published_latest||a.collected_at)||0));
     const repo=/^[\w.-]+\/[\w.-]+$/.test(data.repository||'')?data.repository:'Khanmi1973/linkedin-job-radar';
-    $('scan').href='https://github.com/'+repo+'/actions/workflows/scan.yml';$('source').href='https://github.com/'+repo;
+    $('scan').href='https://github.com/'+repo+'/actions/workflows/scan.yml';$('source').href='https://github.com/'+repo;updateLinkedInLink();
     $('total').textContent=posts.length;$('fresh').textContent=posts.filter(p=>within(p,24)).length;
     $('updated').textContent=date(data.last_success)?.toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})||'Not yet';
     const messages={success:'Scan complete. Scheduled at 08:17 and 20:17 Pakistan time; GitHub may start runs later. Filters below apply to the collected feed.',awaiting_first_scan:'Dashboard published. Add your LinkedIn session secret, then select Run a scan → Run workflow on GitHub.',missing_session_secret:'Setup needed: add the LINKEDIN_STORAGE_STATE secret in repository Settings → Secrets and variables → Actions.',invalid_session_secret:'The saved session secret is invalid. Run the local sign-in helper again and replace the GitHub Actions secret.',session_needs_refresh:'LinkedIn needs sign-in or verification. Refresh your session with the local sign-in helper. Previous results are retained.',access_restricted:'LinkedIn restricted the scan. Previous results are retained; check the workflow before trying again.',no_readable_posts:'No readable posts were found. The session, search results, or LinkedIn layout may need attention. Previous results are retained.',scan_failed:'The latest scan failed. Previous results are retained. Check the GitHub Actions run for its status.'};
@@ -74,7 +75,7 @@ async function load(){
     filterPosts();
   }catch{
     $('notice').textContent='The result file could not be loaded. Refresh the page or check the latest deployment in GitHub Actions.';$('notice').classList.add('attention');
-    $('scan').href='https://github.com/Khanmi1973/linkedin-job-radar/actions/workflows/scan.yml';$('source').href='https://github.com/Khanmi1973/linkedin-job-radar';render();
+    $('scan').href='https://github.com/Khanmi1973/linkedin-job-radar/actions/workflows/scan.yml';$('source').href='https://github.com/Khanmi1973/linkedin-job-radar';updateLinkedInLink();render();
   }
 }
 load();
