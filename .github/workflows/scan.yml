@@ -1,0 +1,78 @@
+name: Scan posts
+on:
+  schedule:
+    - cron: '17 3,15 * * *'
+  workflow_dispatch:
+    inputs:
+      initialize_only:
+        description: 'Publish dashboard without accessing LinkedIn'
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths: ['site/**', 'cloud_scan.py', 'core.py', 'extract.js', 'config.json', 'requirements.txt', '.github/workflows/scan.yml']
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: linkedin-job-radar
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Test filters
+        run: python -m unittest discover -s tests -v
+      - name: Restore previous results
+        uses: actions/cache/restore@v4
+        with:
+          path: site/data.json
+          key: results-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: results-
+      - name: Install browser
+        if: github.event_name != 'push' && inputs.initialize_only != true
+        run: python -m playwright install --with-deps chromium
+      - name: Scan LinkedIn member posts
+        id: scan
+        if: github.event_name != 'push' && inputs.initialize_only != true
+        continue-on-error: true
+        env:
+          LINKEDIN_STORAGE_STATE: ${{ secrets.LINKEDIN_STORAGE_STATE }}
+        run: python cloud_scan.py
+      - name: Initialize dashboard
+        if: github.event_name == 'push' || inputs.initialize_only == true
+        run: python cloud_scan.py --initialize
+      - name: Save results snapshot
+        if: always() && (steps.scan.outcome == 'success' || steps.scan.outcome == 'failure')
+        uses: actions/cache/save@v4
+        with:
+          path: site/data.json
+          key: results-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload dashboard only
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Publish dashboard
+        id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Report scan failure
+        if: steps.scan.outcome == 'failure'
+        run: |
+          echo 'The dashboard was updated with the scan failure status. Refresh the LinkedIn session secret if needed.' >> "$GITHUB_STEP_SUMMARY"
+          exit 1
