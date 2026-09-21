@@ -1,0 +1,9 @@
+{
+  "repository": "Khanmi1973/linkedin-job-radar",
+  "queries": ["hiring", "vacancy", "job opening"],
+  "scan_age": "Last 7 days",
+  "max_scrolls_per_query": 10,
+  "retention_days": 30,
+  "max_posts": 1000,
+  "public_posts_only": true
+}
